@@ -1,0 +1,110 @@
+library(dplyr)
+library(readxl)
+library(writexl)
+
+# Path to track processed files - need to enter path
+processed_files_path <- "enter your path here"
+# Path for saving updated historical data
+historical_data_path <- "enter your path here"
+
+# Function to read the list of processed files
+read_processed_files <- function() {
+  if (file.exists(processed_files_path)) {
+    return(readLines(processed_files_path))
+  } else {
+    return(character())
+  }
+}
+
+# Function to save the list of processed files
+save_processed_files <- function(files) {
+  writeLines(files, processed_files_path)
+}
+
+# Function to read historical data
+read_historical_data <- function() {
+  if (file.exists(historical_data_path)) {
+    return(read_xlsx(historical_data_path))
+  } else {
+    return(data.frame(name = character(), highest_rank = integer(), 
+                      times_in_top_10 = integer(), total_appearances = integer(), 
+                      total_points = numeric(), year_rank = integer(), 
+                      stringsAsFactors = FALSE))
+  }
+}
+
+# Function to update historical data
+
+
+update_historical_data <- function(new_data, historical_data) {
+  # Ensure historical_data has necessary columns
+  required_columns <- c("name", "highest_rank", "times_in_top_10", 
+                        "total_appearances", "total_points", "year_rank")
+  
+  missing_columns <- setdiff(required_columns, names(historical_data))
+  if (length(missing_columns) > 0) {
+    for (col in missing_columns) {
+      historical_data[[col]] <- if (col == "year_rank") integer() else 0
+    }
+  }
+  
+  # Combine old and new data
+  combined_data <- full_join(historical_data, new_data, by = "name") %>%
+    mutate(
+      # Update highest rank
+      highest_rank = pmin(ifelse(is.na(Rank), Inf, Rank), ifelse(is.na(highest_rank), Inf, highest_rank), na.rm = TRUE),
+      # Update times in top 10
+      times_in_top_10 = coalesce(times_in_top_10, 0) + ifelse(!is.na(Rank) & Rank <= 10, 1, 0),
+      # Update total appearances: increment only if the game appears in the new data
+      total_appearances = coalesce(total_appearances, 0) + ifelse(is.na(Rank), 0, 1),
+      # Update total points
+      total_points = coalesce(total_points, 0) + coalesce(weekly_total, 0),
+      # Calculate year rank based on total points
+      year_rank = rank(-total_points, ties.method = "min")
+    ) %>%
+    select(name, highest_rank, times_in_top_10, total_appearances, total_points, year_rank)
+  
+  return(combined_data)
+}
+
+
+
+
+
+# Function to process new files
+process_new_files <- function(directory) {
+  all_files <- list.files(directory, pattern = "*.xlsx", full.names = TRUE)
+  processed_files <- read_processed_files()
+  new_files <- setdiff(all_files, processed_files)
+  
+  if (length(new_files) == 0) {
+    message("No new files to process.")
+    return()
+  }
+  
+  # Read existing historical data
+  historical_data <- read_historical_data()
+  
+  for (file in new_files) {
+    message("Processing file: ", file)
+    new_data <- read_excel(file) %>%
+      select(name, Rank, weekly_total) %>%
+      mutate(Rank = as.integer(Rank),
+             weekly_total = as.numeric(weekly_total))
+    
+    # Update historical data with new data
+    historical_data <- update_historical_data(new_data, historical_data)
+    
+    # After processing, add the file to the list of processed files
+    processed_files <- c(processed_files, file)
+    save_processed_files(processed_files)
+  }
+  
+  # Save the final data to an Excel file on the desktop
+  write_xlsx(historical_data, historical_data_path)
+}
+
+# Run the function to process new files - need to enter path
+process_new_files("add your path here")
+
+
