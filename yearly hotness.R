@@ -2,10 +2,10 @@ library(dplyr)
 library(readxl)
 library(writexl)
 
-# Path to track processed files
-processed_files_path <- "/Users/scottwitebsky/Desktop/processed_files.txt"
+# Path to track processed files - need to add your own path
+processed_files_path <- "include your path here"
 # Path for saving updated historical data
-historical_data_path <- "/Users/scottwitebsky/Desktop/game_stats_summary.xlsx"
+historical_data_path <- "include your path here"
 
 # Function to read the list of processed files
 read_processed_files <- function() {
@@ -104,5 +104,5 @@ process_new_files <- function(directory) {
   write_xlsx(historical_data, historical_data_path)
 }
 
-# Run the function to process new files
-process_new_files("/Users/scottwitebsky/Desktop/Daily_CSV/Weekly")
+# Run the function to process new files - need to add your own path
+process_new_files("include your path here")
